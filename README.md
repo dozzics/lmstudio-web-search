@@ -40,6 +40,14 @@ Capri (Project Capricorn) — конструкт личности из Cyberpunk
 
 ## Установка
 
+### Из LM Studio Hub (в один клик)
+
+Найдите `dozzics/web-search` в Hub внутри LM Studio или откройте страницу плагина:
+
+**https://lmstudio.ai/dozzics/web-search** → кнопка **Run in LM Studio**.
+
+### Из исходников
+
 Нужны [LM Studio](https://lmstudio.ai) и Node.js 20+.
 
 ```powershell
@@ -131,4 +139,4 @@ smoke-test.js          прогон конвейера без LM Studio
 
 ## Лицензия
 
-[MIT](LICENSE). Проект не связан с LM Studio / Element Labs.
+[MIT](https://github.com/DOZZIcs/lmstudio-web-search/blob/main/LICENSE). Проект не связан с LM Studio / Element Labs.
