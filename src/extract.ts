@@ -238,7 +238,12 @@ function paragraphsText(html: string): string {
 export function htmlToText(html: string): string {
   const cleaned = html
     .replace(/<!--[\s\S]*?-->/g, " ")
-    .replace(/<(script|style|noscript|template|svg|canvas|iframe|object|embed|select|button|form)\b[^>]*>[\s\S]*?<\/\1>/gi, " ");
+    .replace(/<(script|style|noscript|template|svg|canvas|iframe|object|embed|select|button|form)\b[^>]*>[\s\S]*?<\/\1>/gi, " ")
+    // MediaWiki/Parsoid keep the raw wikitext in data-mw attributes. It contains
+    // ">" (inside "</ref>" and templates), which breaks naive tag stripping and
+    // leaks JSON/wikitext into the page text. Drop these attributes first.
+    .replace(/\sdata-mw\s*=\s*(?:"[^"]*"|'[^']*')/gi, " ")
+    .replace(/\sdata-parsoid\s*=\s*(?:"[^"]*"|'[^']*')/gi, " ");
 
   let text = findMainContent(cleaned) ?? "";
   if (text.length < 400) {
@@ -253,11 +258,38 @@ export function htmlToText(html: string): string {
     text = decodeEntities(text);
   }
 
-  return text
+  return stripWikiNoise(text)
     .replace(/[ \t\u00a0\u200b]+/g, " ")
     .replace(/ *\n */g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+/**
+ * Remove leftovers of wiki markup and serialized JSON that survive tag
+ * stripping. Without this, pages like Wikipedia leak `{{templates}}`,
+ * `[[links]]` and `{"wt":"..."}` fragments into the model's context.
+ */
+function stripWikiNoise(text: string): string {
+  return (
+    text
+      // {{template}} and {{template|arg}} in one or two passes
+      .replace(/\{\{[^{}]*\}\}/g, " ")
+      .replace(/\{\{[^{}]*\}\}/g, " ")
+      // [[target|label]] -> label
+      .replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1")
+      // <ref>...</ref> and self-closing refs
+      .replace(/<\/?ref\b[^>]*\/?>/gi, " ")
+      // [https://url label] -> label
+      .replace(/\[\s*(?:https?:)?\/\/\S+\s+([^\]]*)\]/gi, "$1")
+      // leftover JSON pairs such as "wt":"text" or "автор":{"wt":"..."}
+      .replace(/"[^"]{1,40}"\s*:\s*\{[^{}]*\}/g, " ")
+      .replace(/"[^"]{1,40}"\s*:\s*"[^"]*"/g, " ")
+      // any tag that survived (e.g. from malformed markup)
+      .replace(/<\/?[a-z][^>]*>/gi, " ")
+      // search-result arrows and edit links
+      .replace(/\[\s*(?:править|edit)\s*\]/gi, " ")
+  );
 }
 
 export function extractTitle(html: string): string {

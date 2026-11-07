@@ -33,6 +33,10 @@ Sources: [cyberpunk.fandom.com](https://cyberpunk.fandom.com/wiki/Capri), [hero.
   not proof that the subject doesn't exist.
 - **Readability-style extraction:** picks the block with the most text and the fewest links,
   not the whole page with menus.
+- **Clean text:** strips wiki markup and embedded JSON (e.g. Wikipedia's `data-mw` wikitext blobs),
+  so the model receives prose instead of `{{templates}}` and `{"wt":"…"}` noise.
+- **Strict answer rules:** the model may use only facts from the fetched text — no names, dates or
+  numbers from memory, and proper names must be copied verbatim, never transliterated.
 - **Fandom via the MediaWiki API**, bypassing the Cloudflare challenge on regular requests.
 - **Relevance ranking:** title matches weigh more than snippets; prefix fuzzy matching tolerates
   typos (`cyberpank` → `Cyberpunk`).

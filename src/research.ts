@@ -149,7 +149,9 @@ const ANSWER_RULES = [
   "Never tell the user to search the web, open links, check a website or 'look it up themselves'. Never claim you cannot access the internet.",
   "Reply in the same language the user used.",
   "If the facts below do not fully answer the question, give what you have and state in one short sentence what is missing. Do not replace the answer with a list of links.",
-  "Do not invent numbers, dates or quotes: use only values that appear in the text below.",
+  "Use ONLY facts from the text below. Do not add names, people, companies, dates or numbers from your own memory, even if you are sure they are true. If a name is missing from the text, do not guess it.",
+  "Never transliterate or translate proper names: keep the original spelling exactly as written in the text (write 'Linus Torvalds', not a Cyrillic phonetic rendering).",
+  "If the text lists creators, authors or owners of the subject, name exactly those people or companies.",
   "End your answer with the single line under 'SOURCES LINE' at the bottom, copied verbatim as the last line: markdown links only, no commentary. Do not add any other links or a separate sources section.",
 ];
 
