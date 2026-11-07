@@ -35,12 +35,13 @@ export async function toolsProvider(_ctl: ToolsProviderController): Promise<Tool
   const openPage = tool({
     name: "open_page",
     description:
-      "Open a specific URL and return its readable text. Use it first when the user asks about a specific supplied URL, or when web_search results need more detail from one page.",
+      "Open a specific URL and return its readable text. Use it first when the user asks about a specific supplied URL, or when web_search results need more detail from one page. If a page chunk returns next_offset, pass it as offset to continue reading.",
     parameters: {
       url: z.string().min(3).describe("Full URL, e.g. https://example.com/article"),
+      offset: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional().describe("Use next_offset from the previous chunk. Omit to start at the beginning."),
     },
-    implementation: async ({ url }, { signal, status }) => {
-      return await readUrl(url, signal, (message) => status(message));
+    implementation: async ({ url, offset }, { signal, status }) => {
+      return await readUrl(url, signal, (message) => status(message), offset);
     },
   });
 

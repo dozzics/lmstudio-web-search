@@ -91,7 +91,7 @@ two sets of tools conflict.
 | `query` | Search query in the language of the question |
 | `pages` | How many top pages to read in full, 0–5 (default 3). `0` = search results with snippets only |
 
-`open_page(url)` opens a specific link and returns its readable text.
+`open_page(url, offset?)` reads up to 12,000 characters from a page. Pass the returned `next_offset` as `offset` to continue.
 
 The model calls the tools on its own when the plugin is enabled in the chat. Sometimes it helps to
 ask explicitly: *"search the web for who Capri from Edgerunners 2 is"*.
@@ -114,7 +114,7 @@ The script runs the same pipeline (search → read → digest) and prints exactl
 3. It opens the top 3–5 pages and extracts the main text (readability-style heuristics).
 4. If a page is rendered entirely by JavaScript, the next result is used instead.
 5. Fandom pages blocked by Cloudflare are read through the MediaWiki API.
-6. Sentences relevant to the query are selected (numbers, dates and prices get a bonus).
+6. Search returns contiguous page text in its original order, up to 12,000 characters per page and 36,000 across selected pages. Longer pages include a continuation offset.
 7. The digest identifies each source by URL. It asks the model to verify conflicting claims and distinguish confirmed events from forecasts.
 
 ### When search engines block requests

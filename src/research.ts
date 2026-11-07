@@ -4,9 +4,8 @@ import { extractDescription, extractPublishedDate, extractTitle, htmlToText, pic
 export const DEFAULT_PAGES = 3;
 export const MAX_PAGES = 5;
 
-const PAGE_EXCERPT_CHARS = 1800;
-const OVERVIEW_EXCERPT_CHARS = 2400;
-const TOTAL_TEXT_BUDGET = 11000;
+const PAGE_CHUNK_CHARS = 12000;
+const TOTAL_TEXT_BUDGET = 36000;
 const PAGE_TIMEOUT_MS = 15000;
 const SEARCH_LIMIT = 10;
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -132,7 +131,7 @@ export async function loadPage(url: string, signal: AbortSignal | undefined): Pr
           text: htmlToText(raw),
         };
       } else {
-        data = { title: "", description: "", published: "", text: raw.trim().slice(0, 20000) };
+        data = { title: "", description: "", published: "", text: raw.trim() };
       }
     }
   } catch {
@@ -149,6 +148,7 @@ export async function loadPage(url: string, signal: AbortSignal | undefined): Pr
 }
 
 const ANSWER_RULES = [
+  "Read the page text and choose the relevant details yourself. For broad questions, cover the main facts with concrete details. If the relevant section may be beyond a truncated chunk, call open_page with the URL and next_offset before answering.",
   "Compare like with like: episodes released so far, the next scheduled episode, and the total announced for a season or stage are different facts. Only call sources contradictory if they disagree on the same fact for the same scope and date.",
   "If the user asks for official confirmation and no official page text below verifies it, use open_page on a relevant official result listed below, or search for the full subject and disputed fact with site:<official-domain> if the publisher or official site is known. If one official site cannot be read, try another official source if available.",
   "Preserve concrete descriptions and relationships from the source. Prefer exact wording from a readable source in the user's language over a loose translation of the same detail. Keep distinctions such as a device versus its wearer.",
@@ -288,7 +288,15 @@ function hostOf(url: string): string {
   }
 }
 
-function formatHit(index: number, hit: SearchHit, page: PageData | null, query: string, budgetLeft: number): string {
+function pageChunk(text: string, offset: number, limit: number): string {
+  const end = Math.min(offset + limit, text.length);
+  const body = text.slice(offset, end);
+  return end < text.length
+    ? `${body}\n\n[More page text available: call open_page with the same URL and offset=${end}. next_offset: ${end}]`
+    : body;
+}
+
+function formatHit(index: number, hit: SearchHit, page: PageData | null, limit: number): string {
   const lines: string[] = [];
   lines.push(`--- SOURCE ${index} | ${hostOf(hit.url)} ---`);
   lines.push(`title: ${hit.title}`);
@@ -297,14 +305,9 @@ function formatHit(index: number, hit: SearchHit, page: PageData | null, query: 
   if (hit.snippet) lines.push(`search_snippet: ${hit.snippet}`);
 
   const pageText = page?.text ?? "";
-  if (pageText.length > MIN_READABLE_TEXT) {
+  if (pageText) {
     lines.push("page_text:");
-    const overview = /^(?:кто\s+(?:такой|такая|такие)|что\s+такое|who\s+(?:is|are)|what\s+is)(?=\s|$)/iu.test(query);
-    const limit = Math.min(overview ? OVERVIEW_EXCERPT_CHARS : PAGE_EXCERPT_CHARS, budgetLeft);
-    // shortcut: overview starts at the page lead, use section-aware excerpts if relevant introductions are buried.
-    lines.push(overview && pageText.length > limit
-      ? `${pageText.slice(0, limit).replace(/\s+\S*$/, "")}…`
-      : pickRelevant(pageText, query, limit));
+    lines.push(pageChunk(pageText, 0, limit));
   } else if (page?.description) {
     lines.push("page_text: (this page is rendered by JavaScript, only its description is available)");
     lines.push(page.description);
@@ -475,11 +478,9 @@ export async function researchWeb(
   const chosen = [...readable, ...items.filter((item) => !readable.includes(item))].slice(0, pageCount);
 
   const parts: string[] = [buildHeader(cleanQuery, chosen.length, ANSWER_RULES, extra)];
-  let budget = TOTAL_TEXT_BUDGET;
+  const perPageLimit = Math.min(PAGE_CHUNK_CHARS, Math.floor(TOTAL_TEXT_BUDGET / chosen.length));
   chosen.forEach((item, index) => {
-    const block = formatHit(index + 1, item.hit, item.page, cleanQuery, Math.max(600, budget));
-    budget -= block.length;
-    parts.push(block);
+    parts.push(formatHit(index + 1, item.hit, item.page, perPageLimit));
   });
 
   const chosenUrls = new Set(chosen.map((item) => item.hit.url));
@@ -493,7 +494,7 @@ export async function researchWeb(
   const supplement = await musicKeySupplement(cleanQuery, signal);
   if (supplement) parts.push("", supplement);
 
-  const readHits = readable.slice(0, pageCount).map((item) => item.hit);
+  const readHits = chosen.filter((item) => item.page?.text).map((item) => item.hit);
   if (readHits.length > 0) {
     parts.push("", "--- FINAL SOURCE LINE (keep only sources used) ---", buildSourcesLine(readHits, cleanQuery));
   }
@@ -505,6 +506,7 @@ export async function readUrl(
   url: string,
   signal: AbortSignal | undefined,
   status: StatusReporter = () => {},
+  offset = 0,
 ): Promise<string> {
   const target = normalizeUrl(url);
   try {
@@ -523,7 +525,10 @@ export async function readUrl(
     ].join("\n");
   }
 
-  const body = page.text.length > 0 ? page.text.slice(0, 12000) : page.description;
+  if (!Number.isSafeInteger(offset) || offset < 0 || (offset > 0 && offset >= page.text.length)) {
+    return `[INVALID PAGE OFFSET] ${target}: use 0 or the next_offset from the previous chunk.`;
+  }
+  const body = page.text ? pageChunk(page.text, offset, PAGE_CHUNK_CHARS) : page.description;
   if (body.trim().length === 0) {
     return [
       `[PAGE IS EMPTY] ${target}`,
@@ -540,6 +545,7 @@ export async function readUrl(
       "Reply in the same language the user used.",
       "Put the source link only on the final Sources line. Do not put links, bracketed domains, or source numbers in the body.",
     ]),
+    `url: ${target}`,
     `title: ${page.title || "(no title)"}`,
     page.published ? `published: ${page.published}` : "",
     "page_text:",
