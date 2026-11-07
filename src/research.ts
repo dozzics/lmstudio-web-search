@@ -205,19 +205,22 @@ function fuzzyMatch(token: string, haystack: string): boolean {
 
 /** Sites that actually publish song key/BPM data, and sites that do not. */
 const MUSIC_SOURCE_WEIGHTS: [RegExp, number][] = [
-  [/(^|\.)songbpm\.com$/i, 6],
-  [/(^|\.)songdata\.io$/i, 6],
-  [/(^|\.)tunebat\.com$/i, 5],
+  [/(^|\.)songbpm\.com$/i, 8],
+  [/(^|\.)12notez\.in$/i, 8],
+  [/(^|\.)songdata\.io$/i, 7],
+  [/(^|\.)tunebat\.com$/i, 6],
   [/(^|\.)hooktheory\.com$/i, 4],
-  [/(^|\.)getsongkey\.com$/i, 4],
-  [/(^|\.)musicstax\.com$/i, 4],
+  [/(^|\.)getsongkey\.com$/i, 5],
+  [/(^|\.)musicstax\.com$/i, 5],
   [/(^|\.)songsterr\.com$/i, -3],
   [/(^|\.)onlinesequencer\.net$/i, -3],
 ];
 
 function isMusicDataQuery(query: string): boolean {
+  // "тональность" / "tonality" is unambiguous on its own.
+  if (/(тональн|tonality)/i.test(query)) return true;
   const aboutMusic = /(трек|песн|song|track|soundtrack|альбом|album|artist|исполн|композитор|music|музык)/i.test(query);
-  const aboutKey = /(тональн|\bkey\b|bpm|темп)/i.test(query);
+  const aboutKey = /(\bkey\b|bpm|темп)/i.test(query);
   const aboutNotes = /(нот[ыаеу]?\b|note|аккорд|chord|гамм|scale)/i.test(query);
   return aboutMusic && (aboutKey || aboutNotes);
 }
@@ -225,7 +228,7 @@ function isMusicDataQuery(query: string): boolean {
 /** Niche facts like "what key is this song in" need an explicit hint for search engines. */
 function augmentQuery(query: string): string {
   if (!isMusicDataQuery(query)) return query;
-  if (/(тональн|\bkey\b|bpm|темп)/i.test(query) && !/\b(bpm|key)\b/i.test(query)) {
+  if (/(тональн|tonality|\bkey\b|bpm|темп)/i.test(query) && !/\b(bpm|key)\b/i.test(query)) {
     return `${query} key bpm`;
   }
   if (/(нот[ыаеу]?\b|note|аккорд|chord|гамм|scale)/i.test(query) && !/\b(notes?|chords?)\b/i.test(query)) {
