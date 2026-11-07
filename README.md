@@ -41,8 +41,9 @@ Sources: [cyberpunk.fandom.com](https://cyberpunk.fandom.com/wiki/Capri), [hero.
   `web_search` before answering anything that needs exact facts, lists, tables, note names, chords,
   code or formulas — and never to build such tables from memory.
 - **Query hints for niche facts:** for "what key/BPM is this song" questions the query gets an
-  explicit `key bpm` hint, and music-data sites (songbpm, songdata, tunebat) are ranked above
-  tab and sequencer pages.
+  explicit `key bpm` hint, and music-data sites (songbpm, songdata, tunebat, 12notez) are ranked
+  above tab and sequencer pages. For "tell me about this track" the plugin also runs a second,
+  focused key/BPM search so the key is present even when the question is generic.
 - **Junk filtering:** when a fallback engine serves unrelated anti-bot results, they are discarded
   and the tool reports a technical failure instead of feeding the model nonsense.
 - **Fandom via the MediaWiki API**, bypassing the Cloudflare challenge on regular requests.

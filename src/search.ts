@@ -129,6 +129,9 @@ function isUsefulUrl(url: string, blockHosts: string[] = []): boolean {
   if (lower.includes("duckduckgo.com/y.js")) return false;
   if (lower.startsWith("https://duckduckgo.com/")) return false;
   if (lower.includes("duckduckgo.com/l/")) return false;
+  // Obvious piracy / SEO-spam hosts that mirror the track name into the domain.
+  if (/\/\/[^/]*\.mp3\.[a-z]{2,}(?:[/:?#]|$)/i.test(lower)) return false;
+  if (/(^|\.|\/\/)(?:mp3juices|y2mate|savefrom|ssyoutube|mp3download|z2)\./i.test(lower)) return false;
   return !blockHosts.some((host) => lower.includes(host));
 }
 
@@ -456,7 +459,8 @@ export async function searchWeb(
   let captcha = false;
 
   const finish = (hits: SearchHit[], engine: string): SearchOutcome => {
-    const outcome: SearchOutcome = { hits: dedupe(hits, limit), engine, captcha, notes };
+    const clean = hits.filter((hit) => isUsefulUrl(hit.url));
+    const outcome: SearchOutcome = { hits: dedupe(clean, limit), engine, captcha, notes };
     if (outcome.hits.length > 0) cacheSet(cacheKey, outcome);
     return outcome;
   };

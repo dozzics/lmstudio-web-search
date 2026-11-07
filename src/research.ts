@@ -154,6 +154,7 @@ const ANSWER_RULES = [
   "If the text lists creators, authors or owners of the subject, name exactly those people or companies.",
   "If the question asks for a list, table, chord chart, note names, code or formulas, take every value from the text below. Never fill gaps or missing rows with your own values - say what is missing instead.",
   "Copy notes, chords, symbols, code and formulas exactly as written in the text (including sharps/flats and 7th/9th suffixes). Do not 'correct' or simplify them from memory.",
+  "If the user asks a follow-up about this subject that the facts below do not cover (for example its key/tonality, BPM, release date or author), call web_search again with the subject name plus that aspect (e.g. '<subject> key bpm'). Never reply that you already searched and never refuse for lack of data in this digest.",
   "End your answer with the single line under the 'COPY THE NEXT LINE' header at the bottom, copied verbatim as the last line: markdown links only, no commentary. Never repeat that header and never add a separate sources section.",
 ];
 
@@ -209,9 +210,11 @@ const MUSIC_SOURCE_WEIGHTS: [RegExp, number][] = [
   [/(^|\.)12notez\.in$/i, 8],
   [/(^|\.)songdata\.io$/i, 7],
   [/(^|\.)tunebat\.com$/i, 6],
-  [/(^|\.)hooktheory\.com$/i, 4],
+  [/(^|\.)getsongbpm\.com$/i, 6],
   [/(^|\.)getsongkey\.com$/i, 5],
   [/(^|\.)musicstax\.com$/i, 5],
+  [/(^|\.)hooktheory\.com$/i, 4],
+  [/(^|\.)chordify\.net$/i, 3],
   [/(^|\.)songsterr\.com$/i, -3],
   [/(^|\.)onlinesequencer\.net$/i, -3],
 ];
@@ -340,6 +343,47 @@ function resultsMatchQuery(hits: SearchHit[], query: string): boolean {
   });
 }
 
+const MUSIC_SUBJECT = /(трек|песн|song|track|soundtrack|музык|music|album|альбом)/i;
+const MUSIC_ASPECT = /(\bkey\b|тональн|tonality|\bbpm\b|темп)/i;
+
+/**
+ * "Tell me about this track" questions usually miss the key/BPM, because music
+ * databases don't rank for such generic wording. Run a second, focused search
+ * so the model gets those facts up front instead of asking the user to retry.
+ */
+function musicSourceWeight(url: string): number {
+  const host = hostOf(url);
+  for (const [pattern, weight] of MUSIC_SOURCE_WEIGHTS) {
+    if (pattern.test(host)) return weight;
+  }
+  return 0;
+}
+
+async function musicKeySupplement(query: string, signal: AbortSignal | undefined): Promise<string> {
+  if (!MUSIC_SUBJECT.test(query) || MUSIC_ASPECT.test(query)) return "";
+  const extra = await searchWeb(`${query} key bpm`, 6, signal);
+  if (extra.hits.length === 0) return "";
+  // The subject words ("Terraria Calamity Mod") match YouTube and shops better
+  // than music databases, so sort by source type first for this section.
+  const hits = [...extra.hits].sort((a, b) => musicSourceWeight(b.url) - musicSourceWeight(a.url)).slice(0, 3);
+
+  const lines = [
+    "--- MUSIC DATABASE FACTS (authoritative for key/BPM; prefer these over sheet-music arrangements) ---",
+  ];
+  const pages = await Promise.allSettled(hits.map((hit) => loadPage(hit.url, signal)));
+  hits.forEach((hit, index) => {
+    lines.push(`- ${hit.title}`);
+    lines.push(`  ${hit.url}`);
+    const loaded = pages[index];
+    const page = loaded.status === "fulfilled" ? loaded.value : null;
+    const excerpt =
+      page && page.text.length > 200 ? pickRelevant(page.text, "key bpm tonality", 500).replace(/\s+/g, " ").trim() : "";
+    if (excerpt) lines.push(`  ${excerpt}`);
+    else if (hit.snippet) lines.push(`  ${hit.snippet}`);
+  });
+  return lines.join("\n");
+}
+
 /** Search DuckDuckGo, read the best pages and return a model-ready digest. */
 export async function researchWeb(
   query: string,
@@ -397,6 +441,8 @@ export async function researchWeb(
       parts.push(`  ${hit.url}`);
       if (hit.snippet) parts.push(`  ${hit.snippet}`);
     }
+    const supplement = await musicKeySupplement(cleanQuery, signal);
+    if (supplement) parts.push("", supplement);
     parts.push("");
     parts.push("--- COPY THE NEXT LINE AS THE LAST LINE OF YOUR ANSWER (do not repeat this header) ---");
     parts.push(buildSourcesLine(ranked, cleanQuery));
@@ -431,6 +477,9 @@ export async function researchWeb(
     for (const hit of rest) parts.push(`- ${hit.title} | ${hit.url}`);
     parts.push("");
   }
+
+  const supplement = await musicKeySupplement(cleanQuery, signal);
+  if (supplement) parts.push("", supplement);
 
   parts.push("--- COPY THE NEXT LINE AS THE LAST LINE OF YOUR ANSWER (do not repeat this header) ---");
   parts.push(buildSourcesLine(chosen.map((item) => item.hit), cleanQuery));
