@@ -152,6 +152,8 @@ const ANSWER_RULES = [
   "Use ONLY facts from the text below. Do not add names, people, companies, dates or numbers from your own memory, even if you are sure they are true. If a name is missing from the text, do not guess it.",
   "Never transliterate or translate proper names: keep the original spelling exactly as written in the text (write 'Linus Torvalds', not a Cyrillic phonetic rendering).",
   "If the text lists creators, authors or owners of the subject, name exactly those people or companies.",
+  "If the question asks for a list, table, chord chart, note names, code or formulas, take every value from the text below. Never fill gaps or missing rows with your own values - say what is missing instead.",
+  "Copy notes, chords, symbols, code and formulas exactly as written in the text (including sharps/flats and 7th/9th suffixes). Do not 'correct' or simplify them from memory.",
   "End your answer with the single line under 'SOURCES LINE' at the bottom, copied verbatim as the last line: markdown links only, no commentary. Do not add any other links or a separate sources section.",
 ];
 

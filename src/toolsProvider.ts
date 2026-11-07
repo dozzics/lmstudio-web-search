@@ -6,8 +6,10 @@ export async function toolsProvider(_ctl: ToolsProviderController): Promise<Tool
   const webSearch = tool({
     name: "web_search",
     description: [
-      "Search the internet with DuckDuckGo AND read the top pages. Returns the actual page text, not just links.",
-      "Use it for ANY question about current events, news, weather, prices, releases, products, people, companies, documentation or anything you are not 100% sure about.",
+      "Search the internet and read the top pages. Returns real page text, not links.",
+      "You MUST call this tool BEFORE answering any request that needs exact facts: news, weather, prices, releases, dates, specifications, statistics, people, companies, products, code, API references, formulas, tables, lists, music theory (notes, scales, chords, keys), recipes, schedules, medical or legal information.",
+      "Never generate lists, tables, chord charts, note names, code or formulas from memory - even when you are confident. Memory is often wrong and the user will see the mistake.",
+      "If the user asks for a table or a full list (for example chords in all keys), search first, then build the table strictly from the fetched text.",
       "The user expects a finished answer: after calling this tool, answer from its output and never ask the user to search or open links.",
       "Finish the answer with the short markdown 'SOURCES LINE' from the tool output, copied verbatim.",
     ].join(" "),

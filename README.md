@@ -37,6 +37,9 @@ Sources: [cyberpunk.fandom.com](https://cyberpunk.fandom.com/wiki/Capri), [hero.
   so the model receives prose instead of `{{templates}}` and `{"wt":"…"}` noise.
 - **Strict answer rules:** the model may use only facts from the fetched text — no names, dates or
   numbers from memory, and proper names must be copied verbatim, never transliterated.
+- **Mandatory search for factual questions:** the tool description tells the model to call
+  `web_search` before answering anything that needs exact facts, lists, tables, note names, chords,
+  code or formulas — and never to build such tables from memory.
 - **Fandom via the MediaWiki API**, bypassing the Cloudflare challenge on regular requests.
 - **Relevance ranking:** title matches weigh more than snippets; prefix fuzzy matching tolerates
   typos (`cyberpank` → `Cyberpunk`).
