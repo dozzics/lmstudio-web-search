@@ -145,7 +145,9 @@ export async function loadPage(url: string, signal: AbortSignal | undefined): Pr
 }
 
 const ANSWER_RULES = [
-  "Answer the user's question directly, using the facts below. This is real web data you just fetched - you do have internet access through this tool.",
+  "Compare like with like: episodes released so far, the next scheduled episode, and the total announced for a season or stage are different facts. Only call sources contradictory if they disagree on the same fact for the same scope and date.",
+  "If the user asks for official confirmation and no official page text below verifies it, use open_page on a relevant official result listed below, or search for the full subject and disputed fact with site:<official-domain> if the publisher or official site is known. If one official site cannot be read, try another official source if available.",
+  "Answer the user's question using the evidence below.",
   "Never tell the user to search the web, open links, check a website or 'look it up themselves'. Never claim you cannot access the internet.",
   "Reply in the same language the user used.",
   "If the facts below do not fully answer the question, give what you have and state in one short sentence what is missing. Do not replace the answer with a list of links.",
@@ -473,7 +475,7 @@ export async function researchWeb(
   const chosenUrls = new Set(chosen.map((item) => item.hit.url));
   const rest = ranked.filter((hit) => !chosenUrls.has(hit.url));
   if (rest.length > 0) {
-    parts.push("--- OTHER SEARCH RESULTS (titles only) ---");
+    parts.push("--- OTHER SEARCH RESULTS (titles only; use open_page to verify relevant sources) ---");
     for (const hit of rest) parts.push(`- ${hit.title} | ${hit.url}`);
     parts.push("");
   }
