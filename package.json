@@ -19,15 +19,15 @@
     "tool-calling"
   ],
   "license": "MIT",
-  "author": "DOZZIcs",
+  "author": "dozzics",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DOZZIcs/lmstudio-web-search.git"
+    "url": "git+https://github.com/dozzics/lmstudio-web-search.git"
   },
   "bugs": {
-    "url": "https://github.com/DOZZIcs/lmstudio-web-search/issues"
+    "url": "https://github.com/dozzics/lmstudio-web-search/issues"
   },
-  "homepage": "https://github.com/DOZZIcs/lmstudio-web-search#readme",
+  "homepage": "https://github.com/dozzics/lmstudio-web-search#readme",
   "engines": {
     "node": ">=20"
   },
