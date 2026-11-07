@@ -12,7 +12,7 @@ export async function toolsProvider(_ctl: ToolsProviderController): Promise<Tool
       "If the user asks for a table or a full list (for example chords in all keys), search first, then build the table strictly from the fetched text.",
       "The user expects a finished answer: after calling this tool, answer from its output and never ask the user to search or open links.",
       "If the user asks a follow-up about the same subject (for example 'what key is it in', 'how long is it'), call this tool again with the subject and the aspect, e.g. '<track> key bpm'. Never answer that you already searched.",
-      "End with a single line of clickable links to the pages used. Link precise claims to their sources. For official confirmation, include the known official domain with site: in the query or open the official result with open_page.",
+      "Put clickable links to the pages used only on the final Sources line. Keep citations and URLs out of the answer body. For official confirmation, include the known official domain with site: in the query or open the official result with open_page.",
     ].join(" "),
     parameters: {
       query: z

@@ -49,7 +49,7 @@ Sources: [cyberpunk.fandom.com](https://cyberpunk.fandom.com/wiki/Capri), [hero.
 - **Fandom via the MediaWiki API**, bypassing the Cloudflare challenge on regular requests.
 - **Relevance ranking:** title matches weigh more than snippets; prefix fuzzy matching tolerates
   typos (`cyberpank` → `Cyberpunk`).
-- **Claim-level citations:** search results include direct URLs, and the model is asked to cite the source that supports each precise claim.
+- **One-line sources:** the model is asked to put clickable links to the pages it used on the last line.
 - **Caching:** search results for 5 minutes, pages for 10 minutes.
 
 ## Installation
