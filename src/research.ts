@@ -370,7 +370,7 @@ export async function researchWeb(
     return [
       "[WEB SEARCH FAILED - TECHNICAL PROBLEM]",
       `query: ${cleanQuery}`,
-      "details: the search engine returned unrelated results (anti-bot page)",
+      `details: ${outcome.engine || "no engine"} returned unrelated results${outcome.notes.length > 0 ? `; ${outcome.notes.join("; ")}` : ""}`,
       "",
       "The results were unrelated to the question, so they were discarded. This is NOT proof that the subject does not exist.",
       "Tell the user in one short sentence that the search failed for technical reasons and offer to retry in a minute.",

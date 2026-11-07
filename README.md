@@ -145,16 +145,29 @@ Dependencies are minimal: `@lmstudio/sdk` and `zod`. HTTP uses the built-in `fet
 
 ### Optional: API keys (bypass rate limits)
 
-HTML scraping is free but rate-limited. If captchas get in the way, set one of these environment
-variables and the plugin will call the API first — no scraping involved:
+HTML scraping is free but rate-limited. If captchas get in the way, add an API key. The plugin reads
+keys from a config file (works regardless of how LM Studio was launched) or from environment variables:
 
-| Engine | Variables | Free tier |
+```
+%USERPROFILE%\.lmstudio\web-search-config.json
+```
+
+```json
+{
+  "serperApiKey": "your-key",
+  "braveApiKey": "optional",
+  "googleApiKey": "optional",
+  "googleCseId": "optional"
+}
+```
+
+| Engine | Config key / env variable | Free tier |
 |---|---|---|
-| Brave Search API | `BRAVE_API_KEY` | 2,000 queries / month |
-| Serper.dev (Google results) | `SERPER_API_KEY` | 2,500 queries once |
-| Google Programmable Search | `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` | 100 queries / day |
+| Brave Search API | `braveApiKey` / `BRAVE_API_KEY` | 2,000 queries / month |
+| Serper.dev (Google results) | `serperApiKey` / `SERPER_API_KEY` | 2,500 queries once |
+| Google Programmable Search | `googleApiKey` + `googleCseId` | 100 queries / day |
 
-Windows (PowerShell), then restart LM Studio:
+Environment variables (alternative), then restart LM Studio:
 
 ```powershell
 setx SERPER_API_KEY "your-key-here"

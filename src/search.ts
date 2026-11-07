@@ -10,6 +10,9 @@
  * to answer plain GET requests with an empty/anti-bot page.
  */
 
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { decodeEntities, stripTags } from "./extract";
 
 export interface SearchHit {
@@ -301,11 +304,47 @@ async function searchWikipedia(query: string, signal: AbortSignal | undefined): 
 }
 
 /**
+ * Settings can come from environment variables or from a JSON file that does
+ * not depend on how LM Studio was launched:
+ *   %USERPROFILE%\.lmstudio\web-search-config.json
+ *   { "serperApiKey": "...", "braveApiKey": "...", "googleApiKey": "...", "googleCseId": "..." }
+ */
+let fileSettings: Record<string, string> | null = null;
+
+function loadFileSettings(): Record<string, string> {
+  if (fileSettings) return fileSettings;
+  const candidates = [
+    join(homedir(), ".lmstudio", "web-search-config.json"),
+    join(homedir(), ".lmstudio", "extensions", "plugins", "dozzics", "web-search", "config.json"),
+  ];
+  for (const path of candidates) {
+    try {
+      const parsed = JSON.parse(readFileSync(path, "utf8")) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        fileSettings = parsed as Record<string, string>;
+        return fileSettings;
+      }
+    } catch {
+      // missing or invalid file - try the next location
+    }
+  }
+  fileSettings = {};
+  return fileSettings;
+}
+
+function setting(fileKey: string, envKey: string): string | undefined {
+  const fromEnv = process.env[envKey]?.trim();
+  if (fromEnv) return fromEnv;
+  const fromFile = loadFileSettings()[fileKey];
+  return typeof fromFile === "string" && fromFile.trim() ? fromFile.trim() : undefined;
+}
+
+/**
  * Optional API engines. They are used first when a key is present in the
  * environment, which avoids HTML scraping and its rate limits altogether.
  */
 async function searchBrave(query: string, signal: AbortSignal | undefined): Promise<EngineResult> {
-  const key = process.env.BRAVE_API_KEY?.trim();
+  const key = setting("braveApiKey", "BRAVE_API_KEY");
   if (!key) return { hits: [] };
   const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=10&safesearch=moderate`;
   const res = await fetch(url, {
@@ -330,7 +369,7 @@ async function searchBrave(query: string, signal: AbortSignal | undefined): Prom
 
 /** Serper.dev: Google results over a simple JSON API (2,500 free queries). */
 async function searchSerper(query: string, signal: AbortSignal | undefined): Promise<EngineResult> {
-  const key = process.env.SERPER_API_KEY?.trim();
+  const key = setting("serperApiKey", "SERPER_API_KEY");
   if (!key) return { hits: [] };
   const res = await fetch("https://google.serper.dev/search", {
     method: "POST",
@@ -354,8 +393,8 @@ async function searchSerper(query: string, signal: AbortSignal | undefined): Pro
 
 /** Google programmable search: 100 free queries per day. */
 async function searchGoogleCse(query: string, signal: AbortSignal | undefined): Promise<EngineResult> {
-  const key = process.env.GOOGLE_API_KEY?.trim();
-  const cx = process.env.GOOGLE_CSE_ID?.trim();
+  const key = setting("googleApiKey", "GOOGLE_API_KEY");
+  const cx = setting("googleCseId", "GOOGLE_CSE_ID");
   if (!key || !cx) return { hits: [] };
   const url =
     `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(key)}` +
