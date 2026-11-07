@@ -155,7 +155,10 @@ const ANSWER_RULES = [
   "If the question asks for a list, table, chord chart, note names, code or formulas, take every value from the text below. Never fill gaps or missing rows with your own values - say what is missing instead.",
   "Copy notes, chords, symbols, code and formulas exactly as written in the text (including sharps/flats and 7th/9th suffixes). Do not 'correct' or simplify them from memory.",
   "If the user asks a follow-up about this subject that the facts below do not cover (for example its key/tonality, BPM, release date or author), call web_search again with the subject name plus that aspect (e.g. '<subject> key bpm'). Never reply that you already searched and never refuse for lack of data in this digest.",
-  "End your answer with the single line under the 'COPY THE NEXT LINE' header at the bottom, copied verbatim as the last line: markdown links only, no commentary. Never repeat that header and never add a separate sources section.",
+  "For each date, count or table row, link directly to the source that supports that specific claim. Cite only sources you actually use.",
+  "For current status, distinguish what has already happened from announced dates and estimates. A past scheduled date or a count of listed entries does not prove release. retrieved_at is the search time, not the source update time.",
+  "When sources disagree or the user challenges a previous answer, state the discrepancy. Check a current primary source with open_page or run a focused search for the disputed fact. If it remains unconfirmed, say so and omit unverified rows from a factual schedule.",
+  "Treat snippets as leads. If a detail appears only in a snippet or title, open the page before stating it as confirmed.",
 ];
 
 function buildHeader(subject: string, sourceCount: number, rules: string[], extra: string[] = []): string {
@@ -278,7 +281,7 @@ function hostOf(url: string): string {
   }
 }
 
-function formatHit(index: number, hit: SearchHit, page: PageData | null, budgetLeft: number): string {
+function formatHit(index: number, hit: SearchHit, page: PageData | null, query: string, budgetLeft: number): string {
   const lines: string[] = [];
   lines.push(`--- SOURCE ${index} | ${hostOf(hit.url)} ---`);
   lines.push(`title: ${hit.title}`);
@@ -289,7 +292,7 @@ function formatHit(index: number, hit: SearchHit, page: PageData | null, budgetL
   const pageText = page?.text ?? "";
   if (pageText.length > MIN_READABLE_TEXT) {
     lines.push("page_text:");
-    lines.push(pickRelevant(pageText, `${hit.title} ${hit.snippet}`, Math.min(PAGE_EXCERPT_CHARS, budgetLeft)));
+    lines.push(pickRelevant(pageText, query, Math.min(PAGE_EXCERPT_CHARS, budgetLeft)));
   } else if (page?.description) {
     lines.push("page_text: (this page is rendered by JavaScript, only its description is available)");
     lines.push(page.description);
@@ -407,7 +410,7 @@ export async function researchWeb(
       "Tell the user in one short sentence that the search failed for technical reasons and offer to retry in a minute.",
       "Never conclude that the information does not exist, and never ask the user to search manually.",
       "Do not recommend other websites, databases or forums instead - just offer to retry.",
-      "If you already know a reliable answer, give it and mark it as unverified.",
+      "Do not supply an answer from memory as a substitute for verification.",
     ]
       .filter(Boolean)
       .join("\n");
@@ -443,9 +446,6 @@ export async function researchWeb(
     }
     const supplement = await musicKeySupplement(cleanQuery, signal);
     if (supplement) parts.push("", supplement);
-    parts.push("");
-    parts.push("--- COPY THE NEXT LINE AS THE LAST LINE OF YOUR ANSWER (do not repeat this header) ---");
-    parts.push(buildSourcesLine(ranked, cleanQuery));
     return parts.join("\n");
   }
 
@@ -465,7 +465,7 @@ export async function researchWeb(
   const parts: string[] = [buildHeader(cleanQuery, chosen.length, ANSWER_RULES, extra)];
   let budget = TOTAL_TEXT_BUDGET;
   chosen.forEach((item, index) => {
-    const block = formatHit(index + 1, item.hit, item.page, Math.max(600, budget));
+    const block = formatHit(index + 1, item.hit, item.page, cleanQuery, Math.max(600, budget));
     budget -= block.length;
     parts.push(block);
   });
@@ -480,9 +480,6 @@ export async function researchWeb(
 
   const supplement = await musicKeySupplement(cleanQuery, signal);
   if (supplement) parts.push("", supplement);
-
-  parts.push("--- COPY THE NEXT LINE AS THE LAST LINE OF YOUR ANSWER (do not repeat this header) ---");
-  parts.push(buildSourcesLine(chosen.map((item) => item.hit), cleanQuery));
 
   return parts.join("\n");
 }
@@ -506,7 +503,7 @@ export async function readUrl(
     return [
       `[PAGE NOT READABLE] ${target}`,
       "The page did not return readable text (blocked, binary or offline).",
-      "Tell the user briefly that this page could not be opened, then offer what you know from other sources.",
+      "Tell the user briefly that this page could not be opened. Use web_search if another source can verify the claim.",
     ].join("\n");
   }
 
@@ -521,7 +518,8 @@ export async function readUrl(
 
   return [
     buildHeader(target, 1, [
-      "Answer the user's question directly from this page.",
+      "Answer the user's question directly from this page. If it does not verify the requested fact, say so.",
+      "Distinguish confirmed events from forecasts. A page description alone is not verification.",
       "Never tell the user to open the link themselves.",
       "Reply in the same language the user used.",
       "End your answer with the single source line from the tool output, copied verbatim as the last line, without the header above it.",

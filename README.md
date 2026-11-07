@@ -2,7 +2,7 @@
 
 A tools plugin that gives local models in [LM Studio](https://lmstudio.ai) a real internet connection:
 it searches DuckDuckGo, **reads the top pages itself**, extracts the text and hands the model a
-ready-to-use digest of facts — with a compact line of clickable sources at the end.
+ready-to-use digest of facts — with direct links to the source pages.
 
 > Local models usually answer questions about current events with *"I don't have internet access,
 > please search for it yourself."* This plugin fixes that: the model calls `web_search`, gets page
@@ -49,7 +49,7 @@ Sources: [cyberpunk.fandom.com](https://cyberpunk.fandom.com/wiki/Capri), [hero.
 - **Fandom via the MediaWiki API**, bypassing the Cloudflare challenge on regular requests.
 - **Relevance ranking:** title matches weigh more than snippets; prefix fuzzy matching tolerates
   typos (`cyberpank` → `Cyberpunk`).
-- **One-line source footer:** bare domains as markdown links, no wall of URLs.
+- **Claim-level citations:** search results include direct URLs, and the model is asked to cite the source that supports each precise claim.
 - **Caching:** search results for 5 minutes, pages for 10 minutes.
 
 ## Installation
@@ -96,8 +96,7 @@ two sets of tools conflict.
 The model calls the tools on its own when the plugin is enabled in the chat. Sometimes it helps to
 ask explicitly: *"search the web for who Capri from Edgerunners 2 is"*.
 
-Answers are written in the language the user used; the source footer follows the same rule
-(`Sources:` for Latin-script questions, `Источники:` for Cyrillic ones).
+The model is asked to answer in the user's language and to flag unresolved conflicts between sources.
 
 ## Testing without LM Studio
 
@@ -116,8 +115,7 @@ The script runs the same pipeline (search → read → digest) and prints exactl
 4. If a page is rendered entirely by JavaScript, the next result is used instead.
 5. Fandom pages blocked by Cloudflare are read through the MediaWiki API.
 6. Sentences relevant to the query are selected (numbers, dates and prices get a bonus).
-7. A ready-made `Sources: [domain](url), …` line is appended to the digest — the model copies it
-   as the last line of its answer.
+7. The digest identifies each source by URL. It asks the model to verify conflicting claims and distinguish confirmed events from forecasts.
 
 ### When search engines block requests
 
