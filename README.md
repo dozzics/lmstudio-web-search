@@ -43,7 +43,7 @@ Capri (Project Capricorn) — конструкт личности из Cyberpunk
 Нужны [LM Studio](https://lmstudio.ai) и Node.js 20+.
 
 ```powershell
-git clone https://github.com/dozzics/lmstudio-web-search.git
+git clone https://github.com/DOZZIcs/lmstudio-web-search.git
 cd lmstudio-web-search
 npm install
 npm run build
