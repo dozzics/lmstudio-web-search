@@ -3,9 +3,17 @@ import { z } from "zod";
 import { clampPages, MAX_PAGES, DEFAULT_PAGES, readUrl, researchWeb } from "./research";
 
 export async function toolsProvider(_ctl: ToolsProviderController): Promise<Tool[]> {
+  const today = new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date());
+
   const webSearch = tool({
     name: "web_search",
     description: [
+      `Current local date: ${today}. Use this date, not your training cutoff, to decide whether a period has started. A request about the current month means events reported so far unless the user asks for a forecast.`,
+      "Call web_search when the user explicitly asks to search online, even after you previously declined. Search before judging whether news, statements or events can be verified. Cover developments through the current date and distinguish them from future plans.",
       "Search the internet and read the top pages. Returns real page text, not links.",
       "You MUST call this tool BEFORE answering any request that needs exact facts: news, weather, prices, releases, dates, specifications, statistics, people, companies, products, code, API references, formulas, tables, lists, music theory (notes, scales, chords, keys), recipes, schedules, medical or legal information.",
       "Never generate lists, tables, chord charts, note names, code or formulas from memory - even when you are confident. Memory is often wrong and the user will see the mistake.",
