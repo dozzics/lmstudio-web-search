@@ -1,0 +1,42 @@
+{
+  "name": "lmstudio-web-search",
+  "version": "1.1.0",
+  "description": "Web search plugin for LM Studio: searches DuckDuckGo (with Bing/Wikipedia fallbacks), reads the top pages and returns page text plus a one-line source footer.",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "dev": "lms dev",
+    "smoke": "node smoke-test.js"
+  },
+  "keywords": [
+    "lmstudio",
+    "lm-studio",
+    "plugin",
+    "web-search",
+    "duckduckgo",
+    "local-llm",
+    "tool-calling"
+  ],
+  "license": "MIT",
+  "author": "DOZZIcs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DOZZIcs/lmstudio-web-search.git"
+  },
+  "bugs": {
+    "url": "https://github.com/DOZZIcs/lmstudio-web-search/issues"
+  },
+  "homepage": "https://github.com/DOZZIcs/lmstudio-web-search#readme",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@lmstudio/sdk": "1.4.0",
+    "zod": "3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.8",
+    "typescript": "^5.6.3"
+  }
+}

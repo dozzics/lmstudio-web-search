@@ -1,0 +1,6 @@
+{
+  "type": "plugin",
+  "runner": "node",
+  "owner": "dozzics",
+  "name": "web-search"
+}
