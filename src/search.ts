@@ -422,7 +422,6 @@ async function searchGoogleCse(query: string, signal: AbortSignal | undefined): 
 
 const API_ENGINES: [string, (query: string, signal: AbortSignal | undefined) => Promise<EngineResult>][] = [
   ["brave", searchBrave],
-  ["serper", searchSerper],
   ["google-cse", searchGoogleCse],
 ];
 
@@ -442,7 +441,7 @@ function cacheSet(key: string, outcome: SearchOutcome): void {
 }
 
 /**
- * Search the web: DuckDuckGo first, then Bing, then Wikipedia.
+ * Search with Serper first, then DuckDuckGo, other configured APIs, Bing and Wikipedia.
  * Returns whatever worked plus notes about what did not, so the model can tell
  * a temporary block apart from "this does not exist".
  */
@@ -450,29 +449,33 @@ export async function searchWeb(
   query: string,
   limit: number,
   signal?: AbortSignal,
+  acceptHits?: (hits: SearchHit[]) => boolean,
 ): Promise<SearchOutcome> {
-  const cacheKey = query.trim().toLowerCase();
+  const cacheKey = JSON.stringify([query.trim().toLowerCase(), limit, Boolean(acceptHits)]);
   const cached = cacheGet(cacheKey);
-  if (cached) return cached;
+  if (cached && (!acceptHits || acceptHits(cached.hits))) return cached;
 
   const notes: string[] = [];
   let captcha = false;
 
-  const finish = (hits: SearchHit[], engine: string): SearchOutcome => {
-    const clean = hits.filter((hit) => isUsefulUrl(hit.url));
-    const outcome: SearchOutcome = { hits: dedupe(clean, limit), engine, captcha, notes };
-    if (outcome.hits.length > 0) cacheSet(cacheKey, outcome);
+  const finish = (hits: SearchHit[], engine: string): SearchOutcome | null => {
+    const clean = dedupe(hits.filter((hit) => isUsefulUrl(hit.url)), limit);
+    if (clean.length === 0) return null;
+    if (acceptHits && !acceptHits(clean)) {
+      notes.push(`${engine} returned unrelated results`);
+      return null;
+    }
+    const outcome: SearchOutcome = { hits: clean, engine, captcha, notes };
+    cacheSet(cacheKey, outcome);
     return outcome;
   };
 
-  // Keyed API engines are tried first: no scraping, no captchas.
-  for (const [name, engine] of API_ENGINES) {
-    try {
-      const result = await engine(query, signal);
-      if (result.hits.length > 0) return finish(result.hits, result.hits[0].engine);
-    } catch (error) {
-      notes.push(`${name}: ${error instanceof Error ? error.message : String(error)}`);
-    }
+  try {
+    const result = await searchSerper(query, signal);
+    const outcome = finish(result.hits, "Serper");
+    if (outcome) return outcome;
+  } catch (error) {
+    notes.push(`serper: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   const ddgCoolingDown = Date.now() < ddgBlockedUntil;
@@ -480,7 +483,8 @@ export async function searchWeb(
   if (!ddgCoolingDown) {
     try {
       const html = await searchDdgHtml(query, signal);
-      if (html.hits.length > 0) return finish(html.hits, "DuckDuckGo");
+      const outcome = finish(html.hits, "DuckDuckGo");
+      if (outcome) return outcome;
       if (html.captcha) captcha = true;
     } catch (error) {
       notes.push(`duckduckgo: ${error instanceof Error ? error.message : String(error)}`);
@@ -488,7 +492,8 @@ export async function searchWeb(
 
     try {
       const lite = await searchDdgLite(query, signal);
-      if (lite.hits.length > 0) return finish(lite.hits, "DuckDuckGo");
+      const outcome = finish(lite.hits, "DuckDuckGo");
+      if (outcome) return outcome;
       if (lite.captcha) captcha = true;
     } catch (error) {
       notes.push(`duckduckgo-lite: ${error instanceof Error ? error.message : String(error)}`);
@@ -502,18 +507,30 @@ export async function searchWeb(
     notes.push("duckduckgo: captcha (rate limit)");
   }
 
+  for (const [name, engine] of API_ENGINES) {
+    try {
+      const result = await engine(query, signal);
+      const outcome = finish(result.hits, result.hits[0]?.engine ?? name);
+      if (outcome) return outcome;
+    } catch (error) {
+      notes.push(`${name}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
   try {
     const bing = await searchBing(query, signal);
-    if (bing.hits.length > 0) return finish(bing.hits, "Bing");
-    notes.push("bing: no results");
+    const outcome = finish(bing.hits, "Bing");
+    if (outcome) return outcome;
+    if (bing.hits.length === 0) notes.push("bing: no results");
   } catch (error) {
     notes.push(`bing: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   try {
     const wiki = await searchWikipedia(query, signal);
-    if (wiki.hits.length > 0) return finish(wiki.hits, "Wikipedia");
-    notes.push("wikipedia: no results");
+    const outcome = finish(wiki.hits, "Wikipedia");
+    if (outcome) return outcome;
+    if (wiki.hits.length === 0) notes.push("wikipedia: no results");
   } catch (error) {
     notes.push(`wikipedia: ${error instanceof Error ? error.message : String(error)}`);
   }

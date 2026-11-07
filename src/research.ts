@@ -410,10 +410,10 @@ export async function researchWeb(
   status: StatusReporter = () => {},
 ): Promise<string> {
   const cleanQuery = query.trim();
-  status(`DuckDuckGo: ${cleanQuery}`);
+  status(`Searching: ${cleanQuery}`);
 
   const searchQuery = augmentQuery(cleanQuery);
-  const outcome = await searchWeb(searchQuery, SEARCH_LIMIT, signal);
+  const outcome = await searchWeb(searchQuery, SEARCH_LIMIT, signal, (hits) => resultsMatchQuery(hits, cleanQuery));
   const hits = outcome.hits;
   if (hits.length === 0) {
     return [
@@ -421,8 +421,8 @@ export async function researchWeb(
       `query: ${cleanQuery}`,
       outcome.notes.length > 0 ? `details: ${outcome.notes.join("; ")}` : "",
       "",
-      "Search engines are temporarily unavailable or rate-limited. This is NOT proof that the subject does not exist.",
-      "Tell the user in one short sentence that the search failed for technical reasons and offer to retry in a minute.",
+      "No search engine returned usable results. This is NOT proof that the subject does not exist.",
+      "Tell the user no usable results were found. If the subject has a known original spelling or fuller name, retry with that spelling and the specific question.",
       "Never conclude that the information does not exist, and never ask the user to search manually.",
       "Do not recommend other websites, databases or forums instead - just offer to retry.",
       "Do not supply an answer from memory as a substitute for verification.",
@@ -431,23 +431,9 @@ export async function researchWeb(
       .join("\n");
   }
 
-  if (!resultsMatchQuery(hits, cleanQuery)) {
-    return [
-      "[WEB SEARCH FAILED - TECHNICAL PROBLEM]",
-      `query: ${cleanQuery}`,
-      `details: ${outcome.engine || "no engine"} returned unrelated results${outcome.notes.length > 0 ? `; ${outcome.notes.join("; ")}` : ""}`,
-      "",
-      "The results were unrelated to the question, so they were discarded. This is NOT proof that the subject does not exist.",
-      "Tell the user in one short sentence that the search failed for technical reasons and offer to retry in a minute.",
-      "Never answer from unrelated pages, never guess, and never ask the user to search manually.",
-      "Do not recommend other websites, databases or forums instead - just offer to retry.",
-    ].join("\n");
-  }
-
+  status(`${outcome.engine}: ${cleanQuery}`);
   const extra: string[] = [`engine: ${outcome.engine}`];
-  if (outcome.engine === "Bing" || outcome.engine === "Wikipedia") {
-    extra.push("note: DuckDuckGo was rate-limited, these results come from the fallback engine - they are still real web results.");
-  }
+  if (outcome.notes.length > 0) extra.push(`search_notes: ${outcome.notes.join("; ")}`);
 
   const ranked = rankHits(hits, cleanQuery);
 

@@ -1,7 +1,7 @@
 ﻿# Web Search for LM Studio
 
 A tools plugin that gives local models in [LM Studio](https://lmstudio.ai) a real internet connection:
-it searches DuckDuckGo, **reads the top pages itself**, extracts the text and hands the model a
+it searches with Serper or a fallback engine, **reads the top pages itself**, extracts the text and hands the model a
 ready-to-use digest of facts — with direct links to the source pages.
 
 > Local models usually answer questions about current events with *"I don't have internet access,
@@ -26,7 +26,7 @@ Sources: [cyberpunk.fandom.com](https://cyberpunk.fandom.com/wiki/Capri), [hero.
 
 - **Two tools:** `web_search` (search + read pages) and `open_page` (open a specific URL).
 - **Returns text, not links.** The model doesn't need to browse — it receives the facts directly.
-- **Resilient search:** DuckDuckGo HTML/Lite → Bing on captcha → Wikipedia as a last resort.
+- **Resilient search:** Serper (with a key) → DuckDuckGo HTML/Lite → other configured APIs → Bing → Wikipedia. Empty or unrelated results trigger fallback.
 - **Captcha detection:** DuckDuckGo answers with HTTP 202 and an `anomaly.js` page when rate-limited;
   the plugin detects it, skips DuckDuckGo for 90 seconds and switches engines instead of looping.
 - **Honest failures:** when every engine is down, the model is told it is a *technical problem*,
