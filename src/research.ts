@@ -5,6 +5,7 @@ export const DEFAULT_PAGES = 3;
 export const MAX_PAGES = 5;
 
 const PAGE_EXCERPT_CHARS = 1800;
+const OVERVIEW_EXCERPT_CHARS = 2400;
 const TOTAL_TEXT_BUDGET = 11000;
 const PAGE_TIMEOUT_MS = 15000;
 const SEARCH_LIMIT = 10;
@@ -150,6 +151,7 @@ export async function loadPage(url: string, signal: AbortSignal | undefined): Pr
 const ANSWER_RULES = [
   "Compare like with like: episodes released so far, the next scheduled episode, and the total announced for a season or stage are different facts. Only call sources contradictory if they disagree on the same fact for the same scope and date.",
   "If the user asks for official confirmation and no official page text below verifies it, use open_page on a relevant official result listed below, or search for the full subject and disputed fact with site:<official-domain> if the publisher or official site is known. If one official site cannot be read, try another official source if available.",
+  "Preserve concrete descriptions and relationships from the source. Prefer exact wording from a readable source in the user's language over a loose translation of the same detail. Keep distinctions such as a device versus its wearer.",
   "Start with a direct identification. For a 'who is' or 'what is' question, explain the subject's role, origin, and notable actions or traits when the evidence supports them. Use concrete names and details, and distinguish installments or versions.",
   "Put all citations only on the final Sources line (Источники in Russian). Use clickable Markdown links with short site names, as shown below, and keep only pages you used. Do not put links, bracketed domains, or source numbers in the body.",
   "Never tell the user to search the web, open links, check a website or 'look it up themselves'. Never claim you cannot access the internet.",
@@ -297,7 +299,12 @@ function formatHit(index: number, hit: SearchHit, page: PageData | null, query: 
   const pageText = page?.text ?? "";
   if (pageText.length > MIN_READABLE_TEXT) {
     lines.push("page_text:");
-    lines.push(pickRelevant(pageText, query, Math.min(PAGE_EXCERPT_CHARS, budgetLeft)));
+    const overview = /^(?:кто\s+(?:такой|такая|такие)|что\s+такое|who\s+(?:is|are)|what\s+is)(?=\s|$)/iu.test(query);
+    const limit = Math.min(overview ? OVERVIEW_EXCERPT_CHARS : PAGE_EXCERPT_CHARS, budgetLeft);
+    // shortcut: overview starts at the page lead, use section-aware excerpts if relevant introductions are buried.
+    lines.push(overview && pageText.length > limit
+      ? `${pageText.slice(0, limit).replace(/\s+\S*$/, "")}…`
+      : pickRelevant(pageText, query, limit));
   } else if (page?.description) {
     lines.push("page_text: (this page is rendered by JavaScript, only its description is available)");
     lines.push(page.description);

@@ -35,7 +35,7 @@ export async function toolsProvider(_ctl: ToolsProviderController): Promise<Tool
   const openPage = tool({
     name: "open_page",
     description:
-      "Open a specific URL and return its readable text. Use it when the user pastes a link, or when web_search results need more detail from one page.",
+      "Open a specific URL and return its readable text. Use it first when the user asks about a specific supplied URL, or when web_search results need more detail from one page.",
     parameters: {
       url: z.string().min(3).describe("Full URL, e.g. https://example.com/article"),
     },
