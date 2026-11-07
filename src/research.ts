@@ -56,7 +56,10 @@ async function loadFandomViaApi(url: string, signal: AbortSignal | undefined): P
   if (!pageName) return null;
 
   try {
-    const api = new URL(`https://${new URL(url).hostname}/api.php`);
+    const api = new URL(url);
+    api.pathname = api.pathname.replace(/\/wiki\/.+$/, "/api.php");
+    api.search = "";
+    api.hash = "";
     api.searchParams.set("action", "parse");
     api.searchParams.set("page", pageName);
     api.searchParams.set("prop", "text");
@@ -147,7 +150,8 @@ export async function loadPage(url: string, signal: AbortSignal | undefined): Pr
 const ANSWER_RULES = [
   "Compare like with like: episodes released so far, the next scheduled episode, and the total announced for a season or stage are different facts. Only call sources contradictory if they disagree on the same fact for the same scope and date.",
   "If the user asks for official confirmation and no official page text below verifies it, use open_page on a relevant official result listed below, or search for the full subject and disputed fact with site:<official-domain> if the publisher or official site is known. If one official site cannot be read, try another official source if available.",
-  "Answer the user's question using the evidence below.",
+  "Start with a direct identification. For a 'who is' or 'what is' question, explain the subject's role, origin, and notable actions or traits when the evidence supports them. Use concrete names and details, and distinguish installments or versions.",
+  "Finish with one line of clickable Markdown links to the pages you used. Use the ready-made source line below when available, removing any link that did not support your answer.",
   "Never tell the user to search the web, open links, check a website or 'look it up themselves'. Never claim you cannot access the internet.",
   "Reply in the same language the user used.",
   "If the facts below do not fully answer the question, give what you have and state in one short sentence what is missing. Do not replace the answer with a list of links.",
@@ -299,7 +303,7 @@ function formatHit(index: number, hit: SearchHit, page: PageData | null, query: 
     lines.push("page_text: (this page is rendered by JavaScript, only its description is available)");
     lines.push(page.description);
   } else {
-    lines.push("page_text: (page body could not be read - use search_snippet above)");
+    lines.push("page_text: (page body could not be read - snippet is only a lead)");
   }
 
   lines.push("");
@@ -461,8 +465,8 @@ export async function researchWeb(
     page: loaded[index].status === "fulfilled" ? loaded[index].value : null,
   }));
 
-  const readable = items.filter((item) => (item.page?.text.length ?? 0) > MIN_READABLE_TEXT).slice(0, pageCount);
-  const chosen = readable.length >= pageCount ? readable : items.slice(0, Math.max(1, pageCount));
+  const readable = items.filter((item) => (item.page?.text.length ?? 0) > MIN_READABLE_TEXT);
+  const chosen = [...readable, ...items.filter((item) => !readable.includes(item))].slice(0, pageCount);
 
   const parts: string[] = [buildHeader(cleanQuery, chosen.length, ANSWER_RULES, extra)];
   let budget = TOTAL_TEXT_BUDGET;
@@ -483,6 +487,10 @@ export async function researchWeb(
   const supplement = await musicKeySupplement(cleanQuery, signal);
   if (supplement) parts.push("", supplement);
 
+  const readHits = readable.slice(0, pageCount).map((item) => item.hit);
+  if (readHits.length > 0) {
+    parts.push("", "--- FINAL SOURCE LINE (keep only sources used) ---", buildSourcesLine(readHits, cleanQuery));
+  }
   return parts.join("\n");
 }
 
