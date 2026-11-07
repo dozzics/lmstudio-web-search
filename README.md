@@ -1,54 +1,54 @@
-﻿# Web Search для LM Studio
+﻿# Web Search for LM Studio
 
-Плагин, который даёт локальной модели в [LM Studio](https://lmstudio.ai) настоящий интернет:
-он ищет в DuckDuckGo, **сам открывает топ-страницы**, вытаскивает из них текст и отдаёт модели
-готовый дайджест с фактами. В конце ответа — короткая строка с кликабельными источниками.
+A tools plugin that gives local models in [LM Studio](https://lmstudio.ai) a real internet connection:
+it searches DuckDuckGo, **reads the top pages itself**, extracts the text and hands the model a
+ready-to-use digest of facts — with a compact line of clickable sources at the end.
 
-> **EN:** A web-search tools plugin for LM Studio. It searches DuckDuckGo (with Bing and
-> Wikipedia fallbacks), reads the top pages itself and returns page text plus a one-line
-> source footer — so local models stop answering *"I have no internet access, google it yourself"*.
+> Local models usually answer questions about current events with *"I don't have internet access,
+> please search for it yourself."* This plugin fixes that: the model calls `web_search`, gets page
+> text back, and answers from facts.
 
-## Зачем
+## Demo
 
-Локальные модели без инструментов отвечают на вопросы о свежих событиях так:
+Without the plugin:
 
-> «Я не имею доступа к интернету. Пожалуйста, поищите информацию самостоятельно.»
+> I don't have access to the internet. Please search for this information yourself.
 
-С этим плагином модель получает инструмент `web_search`, вызывает его и отвечает по фактам:
+With the plugin:
 
 ```
-Capri (Project Capricorn) — конструкт личности из Cyberpunk: Edgerunners 2.
-У неё нет физического тела, она проецирует себя только для своего носителя…
-Источники: [cyberpunk.fandom.com](https://cyberpunk.fandom.com/wiki/Capri), [hero.fandom.com](https://hero.fandom.com/wiki/Capri_(Cyberpunk))
+Capri (Project Capricorn) is a personality construct from Cyberpunk: Edgerunners 2.
+She has no physical form and can only project herself for her current subject…
+Sources: [cyberpunk.fandom.com](https://cyberpunk.fandom.com/wiki/Capri), [hero.fandom.com](https://hero.fandom.com/wiki/Capri_(Cyberpunk))
 ```
 
-## Возможности
+## Features
 
-- **Два инструмента:** `web_search` (поиск + чтение страниц) и `open_page` (открыть конкретный URL).
-- **Возвращает текст, а не ссылки.** Модель не обязана уметь ходить по ссылкам — она сразу получает факты.
-- **Самодостаточный поиск:** DuckDuckGo HTML/Lite → при капче Bing → при отказе Wikipedia.
-- **Распознавание капчи** DuckDuckGo (HTTP 202 / `anomaly.js`) и 90-секундный cooldown вместо
-  бессмысленных повторов.
-- **Честная ошибка:** если все движки отказали, плагин сообщает модели, что это *техническая проблема*,
-  а не доказательство того, что объекта не существует.
-- **Readability-извлечение:** берётся блок с максимумом текста и минимумом ссылок, а не вся страница с меню.
-- **Fandom через MediaWiki API** — обходит Cloudflare, который режет обычные запросы.
-- **Ранжирование выдачи** по релевантности: совпадение в заголовке весит больше, чем в сниппете;
-  нечёткое сравнение по префиксу прощает опечатки («cyberpank» → «Cyberpunk»).
-- **Короткая строка источников** в конце ответа: только домены-гиперссылки, без простыни ссылок.
-- **Кэш:** результаты поиска — 5 минут, страницы — 10 минут.
+- **Two tools:** `web_search` (search + read pages) and `open_page` (open a specific URL).
+- **Returns text, not links.** The model doesn't need to browse — it receives the facts directly.
+- **Resilient search:** DuckDuckGo HTML/Lite → Bing on captcha → Wikipedia as a last resort.
+- **Captcha detection:** DuckDuckGo answers with HTTP 202 and an `anomaly.js` page when rate-limited;
+  the plugin detects it, skips DuckDuckGo for 90 seconds and switches engines instead of looping.
+- **Honest failures:** when every engine is down, the model is told it is a *technical problem*,
+  not proof that the subject doesn't exist.
+- **Readability-style extraction:** picks the block with the most text and the fewest links,
+  not the whole page with menus.
+- **Fandom via the MediaWiki API**, bypassing the Cloudflare challenge on regular requests.
+- **Relevance ranking:** title matches weigh more than snippets; prefix fuzzy matching tolerates
+  typos (`cyberpank` → `Cyberpunk`).
+- **One-line source footer:** bare domains as markdown links, no wall of URLs.
+- **Caching:** search results for 5 minutes, pages for 10 minutes.
 
-## Установка
+## Installation
 
-### Из LM Studio Hub (в один клик)
+### From LM Studio Hub (one click)
 
-Найдите `dozzics/web-search` в Hub внутри LM Studio или откройте страницу плагина:
+Open **https://lmstudio.ai/dozzics/web-search** and press **Run in LM Studio**,
+or search for `dozzics/web-search` in the Hub inside the app.
 
-**https://lmstudio.ai/dozzics/web-search** → кнопка **Run in LM Studio**.
+### From source
 
-### Из исходников
-
-Нужны [LM Studio](https://lmstudio.ai) и Node.js 20+.
+Requires [LM Studio](https://lmstudio.ai) and Node.js 20+.
 
 ```powershell
 git clone https://github.com/DOZZIcs/lmstudio-web-search.git
@@ -56,87 +56,91 @@ cd lmstudio-web-search
 npm install
 npm run build
 
-# установить плагин в LM Studio
+# install the plugin into LM Studio
 & "$env:USERPROFILE\.lmstudio\bin\lms.exe" dev --install -y
 ```
 
-Если `lms` уже в PATH, последнюю строку можно заменить на `lms dev --install -y`.
+If `lms` is already on your PATH, the last line is just `lms dev --install -y`.
 
-После установки **перезапустите LM Studio**, откройте панель **Integrations** (иконка справа
-от поля ввода) и включите `dozzics/web-search`. В строке ввода появится кнопка инструментов.
+After installing, **restart LM Studio**, open the **Integrations** panel (icon next to the chat
+input) and enable `dozzics/web-search`. A tools button will appear in the input field.
 
-Модель должна поддерживать tool calling — подходят gemma, qwen, llama 3.x, mistral и другие.
-Если включён другой плагин с похожими инструментами (например, `alex-garbar/web-search`),
-его лучше выключить: два набора инструментов конфликтуют.
+The model must support tool calling — gemma, qwen, llama 3.x, mistral and others work.
+If another plugin exposes similar tools (for example `alex-garbar/web-search`), disable it:
+two sets of tools conflict.
 
-## Использование
+## Usage
 
 `web_search(query, pages)`:
 
-| Параметр | Описание |
+| Parameter | Description |
 |---|---|
-| `query` | Запрос на языке вопроса |
-| `pages` | Сколько страниц прочитать целиком, 0–5 (по умолчанию 3). `0` — только выдача со сниппетами |
+| `query` | Search query in the language of the question |
+| `pages` | How many top pages to read in full, 0–5 (default 3). `0` = search results with snippets only |
 
-`open_page(url)` — открывает конкретную ссылку и возвращает читаемый текст.
+`open_page(url)` opens a specific link and returns its readable text.
 
-Модель вызывает инструменты сама, если в чате включён плагин и включён режим инструментов.
-Иногда полезно попросить явно: «посмотри в интернете, кто такая Capri из Edgerunners 2».
+The model calls the tools on its own when the plugin is enabled in the chat. Sometimes it helps to
+ask explicitly: *"search the web for who Capri from Edgerunners 2 is"*.
 
-## Проверка без LM Studio
+Answers are written in the language the user used; the source footer follows the same rule
+(`Sources:` for Latin-script questions, `Источники:` for Cyrillic ones).
+
+## Testing without LM Studio
 
 ```powershell
 npm run build
-node smoke-test.js "посмотри в интернете кто такая capri из аниме cyberpank edgranners 2" 3
+node smoke-test.js "who is Capri from Cyberpunk Edgerunners 2" 3
 ```
 
-Скрипт прогоняет тот же конвейер (поиск → чтение → дайджест) и печатает ровно то, что получит модель.
+The script runs the same pipeline (search → read → digest) and prints exactly what the model receives.
 
-## Как это работает
+## How it works
 
-1. Запрос уходит в `html.duckduckgo.com` (POST, дубль — `lite.duckduckgo.com`).
-2. Плагин забирает заголовки, URL и сниппеты выдачи и ранжирует их по релевантности запросу.
-3. Открывает 3–5 верхних страниц и вытаскивает основной текст (эвристика в духе readability).
-4. Если страница отрисована только через JavaScript — берёт следующий результат.
-5. Для Fandom, закрытого Cloudflare, текст берётся через MediaWiki API.
-6. Из текста выбираются предложения, релевантные запросу (цифры, даты, цены получают бонус).
-7. В конец дайджеста добавляется готовая строка `Источники: [домен](url), …` — модель копирует
-   её последней строкой ответа.
+1. The query goes to `html.duckduckgo.com` (POST, with `lite.duckduckgo.com` as a twin).
+2. The plugin collects titles, URLs and snippets from the results and ranks them by relevance.
+3. It opens the top 3–5 pages and extracts the main text (readability-style heuristics).
+4. If a page is rendered entirely by JavaScript, the next result is used instead.
+5. Fandom pages blocked by Cloudflare are read through the MediaWiki API.
+6. Sentences relevant to the query are selected (numbers, dates and prices get a bonus).
+7. A ready-made `Sources: [domain](url), …` line is appended to the digest — the model copies it
+   as the last line of its answer.
 
-### Когда поисковик блокирует запросы
+### When search engines block requests
 
-DuckDuckGo при частых запросах отдаёт не результаты, а капчу — HTTP 202 со страницей `anomaly.js`.
-Плагин распознаёт её по коду ответа и разметке, пропускает DuckDuckGo на 90 секунд и переключается
-на Bing (`form=QBRE`, ссылки разворачиваются из редиректа `bing.com/ck/a`), затем на Wikipedia API.
-В дайджесте появляется `engine: Bing` и пометка, что это резервная, но реальная выдача.
+DuckDuckGo starts answering with a captcha page (HTTP 202, `anomaly.js`) under heavy use.
+The plugin recognises it by status code and markup, skips DuckDuckGo for 90 seconds and switches to
+Bing (`form=QBRE`, links unwrapped from the `bing.com/ck/a` redirect), then to the Wikipedia API.
+The digest then contains `engine: Bing` and a note that these are fallback but still real results.
 
-Если не сработал ни один движок, возвращается `[WEB SEARCH FAILED - TECHNICAL PROBLEM]`:
-модель должна предложить повторить через минуту, а не утверждать, что информации не существует.
+If no engine works, the tool returns `[WEB SEARCH FAILED - TECHNICAL PROBLEM]`: the model should
+offer to retry in a minute instead of claiming the information does not exist.
 
-## Устройство проекта
+## Project layout
 
 ```
-manifest.json          манифест плагина (owner/name)
-index.js               точка входа, грузит сборку из .lmstudio/
-src/index.ts           регистрация tools provider
-src/toolsProvider.ts   описания инструментов для модели
-src/research.ts        поиск + чтение страниц + формат ответа
-src/search.ts          выдача поисковиков, капча, кэш, фолбэки
-src/extract.ts         HTML → текст, выбор релевантных фрагментов
-smoke-test.js          прогон конвейера без LM Studio
+manifest.json          plugin manifest (owner/name)
+index.js               entry point, loads the bundle from .lmstudio/
+src/index.ts           tools provider registration
+src/toolsProvider.ts   tool descriptions shown to the model
+src/research.ts        search + page reading + answer formatting
+src/search.ts          engine scraping, captcha handling, cache, fallbacks
+src/extract.ts         HTML → text, relevant fragment selection
+smoke-test.js          pipeline runner without LM Studio
 ```
 
-Зависимости минимальны: `@lmstudio/sdk` и `zod`. HTTP — встроенный `fetch`.
+Dependencies are minimal: `@lmstudio/sdk` and `zod`. HTTP uses the built-in `fetch`.
 
-## Ограничения
+## Limitations
 
-- Капча DuckDuckGo зависит от IP и временная; в этот момент работает Bing, а для энциклопедических
-  вопросов — Wikipedia.
-- Сайты, полностью отрисованные на JavaScript (например, gismeteo), отдают только описание и сниппет —
-  плагин честно помечает это в тексте.
-- PDF и бинарные файлы не читаются.
-- Прокси или корпоративный фильтр может блокировать поисковики.
+- DuckDuckGo captchas depend on your IP and are temporary; meanwhile Bing (and Wikipedia for
+  encyclopedic questions) takes over.
+- Sites rendered entirely in JavaScript (e.g. weather widgets) expose only their description and
+  search snippet — the plugin marks this explicitly in the text.
+- PDF and binary files are not parsed.
+- A proxy or corporate filter may block the search engines.
 
-## Лицензия
+## License
 
-[MIT](https://github.com/DOZZIcs/lmstudio-web-search/blob/main/LICENSE). Проект не связан с LM Studio / Element Labs.
+[MIT](https://github.com/DOZZIcs/lmstudio-web-search/blob/main/LICENSE). Not affiliated with
+LM Studio or Element Labs.
