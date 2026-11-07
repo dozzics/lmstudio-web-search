@@ -11,7 +11,7 @@ export async function toolsProvider(_ctl: ToolsProviderController): Promise<Tool
       "Never generate lists, tables, chord charts, note names, code or formulas from memory - even when you are confident. Memory is often wrong and the user will see the mistake.",
       "If the user asks for a table or a full list (for example chords in all keys), search first, then build the table strictly from the fetched text.",
       "The user expects a finished answer: after calling this tool, answer from its output and never ask the user to search or open links.",
-      "Finish the answer with the short markdown 'SOURCES LINE' from the tool output, copied verbatim.",
+      "Finish the answer with the single source line from the tool output, copied verbatim as the last line, without the header above it.",
     ].join(" "),
     parameters: {
       query: z

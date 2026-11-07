@@ -40,6 +40,11 @@ Sources: [cyberpunk.fandom.com](https://cyberpunk.fandom.com/wiki/Capri), [hero.
 - **Mandatory search for factual questions:** the tool description tells the model to call
   `web_search` before answering anything that needs exact facts, lists, tables, note names, chords,
   code or formulas — and never to build such tables from memory.
+- **Query hints for niche facts:** for "what key/BPM is this song" questions the query gets an
+  explicit `key bpm` hint, and music-data sites (songbpm, songdata, tunebat) are ranked above
+  tab and sequencer pages.
+- **Junk filtering:** when a fallback engine serves unrelated anti-bot results, they are discarded
+  and the tool reports a technical failure instead of feeding the model nonsense.
 - **Fandom via the MediaWiki API**, bypassing the Cloudflare challenge on regular requests.
 - **Relevance ranking:** title matches weigh more than snippets; prefix fuzzy matching tolerates
   typos (`cyberpank` → `Cyberpunk`).

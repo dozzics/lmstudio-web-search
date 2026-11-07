@@ -154,7 +154,7 @@ const ANSWER_RULES = [
   "If the text lists creators, authors or owners of the subject, name exactly those people or companies.",
   "If the question asks for a list, table, chord chart, note names, code or formulas, take every value from the text below. Never fill gaps or missing rows with your own values - say what is missing instead.",
   "Copy notes, chords, symbols, code and formulas exactly as written in the text (including sharps/flats and 7th/9th suffixes). Do not 'correct' or simplify them from memory.",
-  "End your answer with the single line under 'SOURCES LINE' at the bottom, copied verbatim as the last line: markdown links only, no commentary. Do not add any other links or a separate sources section.",
+  "End your answer with the single line under the 'COPY THE NEXT LINE' header at the bottom, copied verbatim as the last line: markdown links only, no commentary. Never repeat that header and never add a separate sources section.",
 ];
 
 function buildHeader(subject: string, sourceCount: number, rules: string[], extra: string[] = []): string {
@@ -193,20 +193,52 @@ function buildSourcesLine(hits: SearchHit[], query: string): string {
   return `${label}: ${links.join(", ")}`;
 }
 
-/** Prefix-based fuzzy match, so "cyberpank" still matches "Cyberpunk". */
+/** Prefix-based fuzzy match, so "cyberpank" still matches "Cyberpunk" and "блюза" matches "блюзовая". */
 function fuzzyMatch(token: string, haystack: string): boolean {
   if (haystack.includes(token)) return true;
   if (token.length < 5) return false;
-  const prefix = token.slice(0, 5);
+  const prefix = token.slice(0, 4);
   return haystack
     .split(/[^\p{L}\p{N}]+/u)
-    .some((word) => word.length >= 5 && (word.startsWith(prefix) || token.startsWith(word.slice(0, 5))));
+    .some((word) => word.length >= 5 && (word.startsWith(prefix) || token.startsWith(word.slice(0, 4))));
+}
+
+/** Sites that actually publish song key/BPM data, and sites that do not. */
+const MUSIC_SOURCE_WEIGHTS: [RegExp, number][] = [
+  [/(^|\.)songbpm\.com$/i, 6],
+  [/(^|\.)songdata\.io$/i, 6],
+  [/(^|\.)tunebat\.com$/i, 5],
+  [/(^|\.)hooktheory\.com$/i, 4],
+  [/(^|\.)getsongkey\.com$/i, 4],
+  [/(^|\.)musicstax\.com$/i, 4],
+  [/(^|\.)songsterr\.com$/i, -3],
+  [/(^|\.)onlinesequencer\.net$/i, -3],
+];
+
+function isMusicDataQuery(query: string): boolean {
+  const aboutMusic = /(трек|песн|song|track|soundtrack|альбом|album|artist|исполн|композитор|music|музык)/i.test(query);
+  const aboutKey = /(тональн|\bkey\b|bpm|темп)/i.test(query);
+  const aboutNotes = /(нот[ыаеу]?\b|note|аккорд|chord|гамм|scale)/i.test(query);
+  return aboutMusic && (aboutKey || aboutNotes);
+}
+
+/** Niche facts like "what key is this song in" need an explicit hint for search engines. */
+function augmentQuery(query: string): string {
+  if (!isMusicDataQuery(query)) return query;
+  if (/(тональн|\bkey\b|bpm|темп)/i.test(query) && !/\b(bpm|key)\b/i.test(query)) {
+    return `${query} key bpm`;
+  }
+  if (/(нот[ыаеу]?\b|note|аккорд|chord|гамм|scale)/i.test(query) && !/\b(notes?|chords?)\b/i.test(query)) {
+    return `${query} notes chords`;
+  }
+  return query;
 }
 
 /** How well a result matches the query: title matches weigh more than snippets. */
 function rankHits(hits: SearchHit[], query: string): SearchHit[] {
   const tokens = tokenize(query);
   if (tokens.length === 0) return hits;
+  const musicQuery = isMusicDataQuery(query);
 
   return hits
     .map((hit, index) => {
@@ -216,6 +248,15 @@ function rankHits(hits: SearchHit[], query: string): SearchHit[] {
       for (const token of tokens) {
         if (fuzzyMatch(token, title)) score += 3;
         else if (fuzzyMatch(token, snippet)) score += 1;
+      }
+      if (musicQuery) {
+        const host = hostOf(hit.url);
+        for (const [pattern, weight] of MUSIC_SOURCE_WEIGHTS) {
+          if (pattern.test(host)) {
+            score += weight;
+            break;
+          }
+        }
       }
       return { hit, index, score };
     })
@@ -254,6 +295,48 @@ function formatHit(index: number, hit: SearchHit, page: PageData | null, budgetL
   return lines.join("\n");
 }
 
+/**
+ * Tokens that describe the *type* of data asked for rather than the subject.
+ * They should not decide whether a search result is relevant.
+ */
+const GENERIC_QUERY_TOKENS = new Set([
+  "key", "bpm", "notes", "note", "chords", "chord", "scale", "scales", "music", "song", "track",
+  "темп", "гамм", "аккорд", "нот", "трек", "песн", "музык", "написан", "написана", "написано",
+]);
+
+function coreQueryTokens(query: string): string[] {
+  return tokenize(query).filter((token) => {
+    if (GENERIC_QUERY_TOKENS.has(token)) return false;
+    if (token.startsWith("тональн")) return false;
+    return true;
+  });
+}
+
+/**
+ * Fallback engines sometimes serve anti-bot pages with completely unrelated
+ * results (e.g. "VK" pages for a music question). Feeding those to the model is
+ * worse than admitting failure, so require at least one distinctive query token
+ * to appear in the results.
+ */
+function resultsMatchQuery(hits: SearchHit[], query: string): boolean {
+  const core = coreQueryTokens(query);
+  if (core.length === 0) return true;
+
+  const distinctive = core.filter((token) => token.length >= 5);
+  const required = distinctive.length > 0 ? distinctive : core;
+  const need = Math.min(2, required.length);
+
+  return hits.some((hit) => {
+    const hay = `${hit.title} ${hit.snippet} ${hit.url}`.toLowerCase();
+    let matches = 0;
+    for (const token of required) {
+      if (fuzzyMatch(token, hay)) matches += 1;
+      if (matches >= need) return true;
+    }
+    return false;
+  });
+}
+
 /** Search DuckDuckGo, read the best pages and return a model-ready digest. */
 export async function researchWeb(
   query: string,
@@ -264,7 +347,8 @@ export async function researchWeb(
   const cleanQuery = query.trim();
   status(`DuckDuckGo: ${cleanQuery}`);
 
-  const outcome = await searchWeb(cleanQuery, SEARCH_LIMIT, signal);
+  const searchQuery = augmentQuery(cleanQuery);
+  const outcome = await searchWeb(searchQuery, SEARCH_LIMIT, signal);
   const hits = outcome.hits;
   if (hits.length === 0) {
     return [
@@ -279,6 +363,18 @@ export async function researchWeb(
     ]
       .filter(Boolean)
       .join("\n");
+  }
+
+  if (!resultsMatchQuery(hits, cleanQuery)) {
+    return [
+      "[WEB SEARCH FAILED - TECHNICAL PROBLEM]",
+      `query: ${cleanQuery}`,
+      "details: the search engine returned unrelated results (anti-bot page)",
+      "",
+      "The results were unrelated to the question, so they were discarded. This is NOT proof that the subject does not exist.",
+      "Tell the user in one short sentence that the search failed for technical reasons and offer to retry in a minute.",
+      "Never answer from unrelated pages, never guess, and never ask the user to search manually.",
+    ].join("\n");
   }
 
   const extra: string[] = [`engine: ${outcome.engine}`];
@@ -297,7 +393,7 @@ export async function researchWeb(
       if (hit.snippet) parts.push(`  ${hit.snippet}`);
     }
     parts.push("");
-    parts.push("--- SOURCES LINE (copy verbatim as the last line of your answer) ---");
+    parts.push("--- COPY THE NEXT LINE AS THE LAST LINE OF YOUR ANSWER (do not repeat this header) ---");
     parts.push(buildSourcesLine(ranked, cleanQuery));
     return parts.join("\n");
   }
@@ -331,7 +427,7 @@ export async function researchWeb(
     parts.push("");
   }
 
-  parts.push("--- SOURCES LINE (copy verbatim as the last line of your answer) ---");
+  parts.push("--- COPY THE NEXT LINE AS THE LAST LINE OF YOUR ANSWER (do not repeat this header) ---");
   parts.push(buildSourcesLine(chosen.map((item) => item.hit), cleanQuery));
 
   return parts.join("\n");
@@ -374,14 +470,14 @@ export async function readUrl(
       "Answer the user's question directly from this page.",
       "Never tell the user to open the link themselves.",
       "Reply in the same language the user used.",
-      "End your answer with the single line under 'SOURCES LINE' at the bottom, copied verbatim as the last line.",
+      "End your answer with the single source line from the tool output, copied verbatim as the last line, without the header above it.",
     ]),
     `title: ${page.title || "(no title)"}`,
     page.published ? `published: ${page.published}` : "",
     "page_text:",
     body,
     "",
-    "--- SOURCES LINE (copy verbatim as the last line of your answer) ---",
+    "--- COPY THE NEXT LINE AS THE LAST LINE OF YOUR ANSWER (do not repeat this header) ---",
     buildSourcesLine([{ title: page.title || target, url: target, snippet: "", engine: "" }], target),
   ]
     .filter(Boolean)
