@@ -143,6 +143,25 @@ smoke-test.js          pipeline runner without LM Studio
 
 Dependencies are minimal: `@lmstudio/sdk` and `zod`. HTTP uses the built-in `fetch`.
 
+### Optional: API keys (bypass rate limits)
+
+HTML scraping is free but rate-limited. If captchas get in the way, set one of these environment
+variables and the plugin will call the API first — no scraping involved:
+
+| Engine | Variables | Free tier |
+|---|---|---|
+| Brave Search API | `BRAVE_API_KEY` | 2,000 queries / month |
+| Serper.dev (Google results) | `SERPER_API_KEY` | 2,500 queries once |
+| Google Programmable Search | `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` | 100 queries / day |
+
+Windows (PowerShell), then restart LM Studio:
+
+```powershell
+setx SERPER_API_KEY "your-key-here"
+```
+
+Without keys the plugin falls back to DuckDuckGo → Bing → Wikipedia as before.
+
 ## Limitations
 
 - DuckDuckGo captchas depend on your IP and are temporary; meanwhile Bing (and Wikipedia for

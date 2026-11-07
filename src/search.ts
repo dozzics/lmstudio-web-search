@@ -300,6 +300,90 @@ async function searchWikipedia(query: string, signal: AbortSignal | undefined): 
   };
 }
 
+/**
+ * Optional API engines. They are used first when a key is present in the
+ * environment, which avoids HTML scraping and its rate limits altogether.
+ */
+async function searchBrave(query: string, signal: AbortSignal | undefined): Promise<EngineResult> {
+  const key = process.env.BRAVE_API_KEY?.trim();
+  if (!key) return { hits: [] };
+  const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=10&safesearch=moderate`;
+  const res = await fetch(url, {
+    headers: { Accept: "application/json", "X-Subscription-Token": key, "User-Agent": USER_AGENT },
+    signal: withTimeout(signal, 15000),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = (await res.json()) as {
+    web?: { results?: { title?: string; url?: string; description?: string }[] };
+  };
+  return {
+    hits: (json.web?.results ?? [])
+      .filter((item) => item.url)
+      .map((item) => ({
+        title: stripTags(item.title ?? ""),
+        url: item.url as string,
+        snippet: stripTags(item.description ?? ""),
+        engine: "Brave",
+      })),
+  };
+}
+
+/** Serper.dev: Google results over a simple JSON API (2,500 free queries). */
+async function searchSerper(query: string, signal: AbortSignal | undefined): Promise<EngineResult> {
+  const key = process.env.SERPER_API_KEY?.trim();
+  if (!key) return { hits: [] };
+  const res = await fetch("https://google.serper.dev/search", {
+    method: "POST",
+    headers: { "X-API-KEY": key, "Content-Type": "application/json" },
+    body: JSON.stringify({ q: query, num: 10 }),
+    signal: withTimeout(signal, 15000),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = (await res.json()) as { organic?: { title?: string; link?: string; snippet?: string }[] };
+  return {
+    hits: (json.organic ?? [])
+      .filter((item) => item.link)
+      .map((item) => ({
+        title: stripTags(item.title ?? ""),
+        url: item.link as string,
+        snippet: stripTags(item.snippet ?? ""),
+        engine: "Serper",
+      })),
+  };
+}
+
+/** Google programmable search: 100 free queries per day. */
+async function searchGoogleCse(query: string, signal: AbortSignal | undefined): Promise<EngineResult> {
+  const key = process.env.GOOGLE_API_KEY?.trim();
+  const cx = process.env.GOOGLE_CSE_ID?.trim();
+  if (!key || !cx) return { hits: [] };
+  const url =
+    `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(key)}` +
+    `&cx=${encodeURIComponent(cx)}&num=10&q=${encodeURIComponent(query)}`;
+  const res = await fetch(url, {
+    headers: { Accept: "application/json" },
+    signal: withTimeout(signal, 15000),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = (await res.json()) as { items?: { title?: string; link?: string; snippet?: string }[] };
+  return {
+    hits: (json.items ?? [])
+      .filter((item) => item.link)
+      .map((item) => ({
+        title: stripTags(item.title ?? ""),
+        url: item.link as string,
+        snippet: stripTags(item.snippet ?? ""),
+        engine: "Google",
+      })),
+  };
+}
+
+const API_ENGINES: [string, (query: string, signal: AbortSignal | undefined) => Promise<EngineResult>][] = [
+  ["brave", searchBrave],
+  ["serper", searchSerper],
+  ["google-cse", searchGoogleCse],
+];
+
 function cacheGet(key: string): SearchOutcome | null {
   const entry = searchCache.get(key);
   if (!entry) return null;
@@ -337,6 +421,16 @@ export async function searchWeb(
     if (outcome.hits.length > 0) cacheSet(cacheKey, outcome);
     return outcome;
   };
+
+  // Keyed API engines are tried first: no scraping, no captchas.
+  for (const [name, engine] of API_ENGINES) {
+    try {
+      const result = await engine(query, signal);
+      if (result.hits.length > 0) return finish(result.hits, result.hits[0].engine);
+    } catch (error) {
+      notes.push(`${name}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
 
   const ddgCoolingDown = Date.now() < ddgBlockedUntil;
 

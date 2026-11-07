@@ -359,6 +359,7 @@ export async function researchWeb(
       "Search engines are temporarily unavailable or rate-limited. This is NOT proof that the subject does not exist.",
       "Tell the user in one short sentence that the search failed for technical reasons and offer to retry in a minute.",
       "Never conclude that the information does not exist, and never ask the user to search manually.",
+      "Do not recommend other websites, databases or forums instead - just offer to retry.",
       "If you already know a reliable answer, give it and mark it as unverified.",
     ]
       .filter(Boolean)
@@ -374,11 +375,12 @@ export async function researchWeb(
       "The results were unrelated to the question, so they were discarded. This is NOT proof that the subject does not exist.",
       "Tell the user in one short sentence that the search failed for technical reasons and offer to retry in a minute.",
       "Never answer from unrelated pages, never guess, and never ask the user to search manually.",
+      "Do not recommend other websites, databases or forums instead - just offer to retry.",
     ].join("\n");
   }
 
   const extra: string[] = [`engine: ${outcome.engine}`];
-  if (outcome.engine !== "DuckDuckGo") {
+  if (outcome.engine === "Bing" || outcome.engine === "Wikipedia") {
     extra.push("note: DuckDuckGo was rate-limited, these results come from the fallback engine - they are still real web results.");
   }
 
